@@ -6,9 +6,8 @@
  * 修改记录：	第一次创建
 *********************************************/
 
-#include <vector>
-
-#include <../include/common.h>
+#include "../include/common.h"
+#include <string>
 
 using namespace std;
 
@@ -24,15 +23,15 @@ using namespace std;
 int main(int argc, const char** argv)
 {
 	//读取二进制文件，全局初始化
-	global_init();
+	global_init(string(argv[1]));
 	//遍历指令
-	for(uint32_t offset = get_next_inst_offset(0); offset!=0; offset = get_next_inst_offset(offset))
-	{
-		inst_byte_set_t& inst_str = get_inst_from_offset(offset);
-		if(is_indirect_branch(inst_str))
-		{
-		}
-	}
-	global_end();
+//	for(uint32_t offset = get_next_inst_offset(0); offset!=0; offset = get_next_inst_offset(offset))
+//	{
+//		inst_byte_set_t& inst_str = get_inst_from_offset(offset);
+//		if(is_indirect_branch(inst_str))
+//		{
+//		}
+//	}
+//	global_end();
 	return 0;
 }
