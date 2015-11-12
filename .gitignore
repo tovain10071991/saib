@@ -1,3 +1,4 @@
-!src/*
-!include/*
+.gitignore
+bin/*
+object/*
 **/*~
