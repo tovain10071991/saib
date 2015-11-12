@@ -6,6 +6,12 @@
  * 修改记录：	第一次创建
 *********************************************/
 
+#include <vector>
+
+#include <../include/common.h>
+
+using namespace std;
+
 /*===========================================
  * 函数名：	main
  * 参数：
@@ -22,7 +28,7 @@ int main(int argc, const char** argv)
 	//遍历指令
 	for(uint32_t offset = get_next_inst_offset(0); offset!=0; offset = get_next_inst_offset(offset))
 	{
-		vector<uint8_t> inst_str = get_inst_from_offset(offset);
+		inst_byte_set_t& inst_str = get_inst_from_offset(offset);
 		if(is_indirect_branch(inst_str))
 		{
 		}
