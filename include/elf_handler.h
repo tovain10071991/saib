@@ -9,8 +9,9 @@
 #define _ELF_HANDLER_H_
 
 #include <string>
+#include "../include/common.h"
 
 void init_elf(const std::string& file_path);		//初始化elf
-//uint32_t get_next_inst_offset(uint32_t offset);
+byte_set_t get_byte_set_from_offset(uint32_t offset);	//根据文件偏移读取字节集
 
 #endif

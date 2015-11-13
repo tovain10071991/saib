@@ -11,12 +11,14 @@ SAIB_INCLUDE := $(PROJECT_ROOT)/include
 SAIB_SOURCE := $(PROJECT_ROOT)/src
 SAIB_BIN := $(PROJECT_ROOT)/bin
 SAIB_OBJECT := $(PROJECT_ROOT)/object
+SAIB_OUT := $(PROJECT_ROOT)/out
 
 EXECUTE := $(SAIB_BIN)/saib
 SOURCE := $(wildcard $(SAIB_SOURCE)/*.cpp)
 SOURCE_BASE_NAME = $(notdir $(SOURCE))
 OBJECT_BASE_NAME := $(SOURCE_BASE_NAME:.cpp=.o)
 OBJECT := $(foreach n,$(OBJECT_BASE_NAME),$(SAIB_OBJECT)/$(n))
+OUTPUT := $(wildcard $(SAIB_OUT)/*out*)
 
 INCLUDEDIR := -I$(ELF_INCLUDE)
 LIBDIR := -L$(ELF_LIBRARY)
@@ -38,3 +40,6 @@ $(SAIB_OBJECT)/%.o: $(SAIB_SOURCE)/%.cpp
 
 clean:
 	rm $(EXECUTE) $(OBJECT)
+
+clean-out:
+	rm $(OUTPUT)

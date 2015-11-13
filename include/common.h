@@ -8,17 +8,25 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
-#include <vector>
+#include <array>
 #include <string>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <err.h>
+#include <errno.h>
 #ifdef DEBUG
 	#include <map>
 #endif
 
-typedef std::vector<uint8_t> inst_byte_set_t;
+#define INST_MAX_SIZE 15	//指令字节的长度上限
+typedef std::array<uint8_t, INST_MAX_SIZE> inst_byte_set_t;
+typedef inst_byte_set_t byte_set_t;
 
 extern void global_init(const std::string& file_path);
+uint32_t get_next_inst_offset();
 //extern uint32_t get_next_inst_offset(uint32_t offset);
 //extern const inst_byte_set_t& get_inst_from_offset(uint32_t offset);
 //extern bool is_indirect_branch(const inst_byte_set_t& inst_str);
@@ -30,7 +38,7 @@ extern std::map<std::string, int> file_count;
  * 宏名：	debug_output_with_FILE
  * 参数：
  *			FILE* out_stream：可以是stdin, stdout, stderr(这三个FILE指针声明在stdio.h)，也可以是其它文件流
- 			format, arg...：和printf()的参数一样
+ *			format, arg...：和printf()的参数一样
  *	功能描述：接收文件流，调试状态下格式化写
  *	返回值
  *	抛出异常
@@ -43,7 +51,7 @@ extern std::map<std::string, int> file_count;
  * 宏名：	debug_output_with_FilePath
  * 参数：
  *			const string& file_name：文件路径名
- 			format, arg...：和printf()的参数一样
+ *			format, arg...：和printf()的参数一样
  *	功能描述：接收文件路径名，调试状态下格式化写
  *	返回值
  *	抛出异常
@@ -54,7 +62,7 @@ extern std::map<std::string, int> file_count;
 		struct stat st;	\
 		if(file_count.find(file_path)==file_count.end())	\
 			file_count[file_path] = 0;	\
-		string full_path(file_path+"."+to_string(file_count[file_path]));	\
+		string full_path(file_path+string(".")+to_string(file_count[file_path]));	\
 		int fd = open(full_path.c_str(), O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);	\
 		if(fd==-1)	\
 			err(errno, "open file <%s> in debug_output_filePath failed", full_path.c_str());	\
@@ -66,7 +74,7 @@ extern std::map<std::string, int> file_count;
 			debug_output_with_FILE(stderr, "complete output of the file <%s>\n", full_path.c_str());	\
 			++file_count[file_path];\
 			full_path.clear();	\
-			full_path = file_path + "." + to_string(file_count[file_path]);	\
+			full_path = file_path + string(".") + to_string(file_count[file_path]);	\
 		}	\
 		close(fd);	\
 		FILE* fp = fopen(full_path.c_str(), "a+");	\
@@ -77,7 +85,7 @@ extern std::map<std::string, int> file_count;
 	})
 #else
 	#define debug_output_with_FILE(out_stream, format, args...)
-	#define debug_output_with_fileName(file_name, format, args...)
+	#define debug_output_with_filePath(file_path, format, args...)
 #endif
 
 #endif
