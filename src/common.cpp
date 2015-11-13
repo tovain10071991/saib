@@ -6,10 +6,7 @@
  * 修改记录：	第一次创建
 *********************************************/
 #include <string>
-#include <fcntl.h>
-#include <unistd.h>
-#include <err.h>
-#include <errno.h>
+#include "../include/elf_handler.h"
 
 using namespace std;
 
@@ -23,12 +20,8 @@ using namespace std;
 ===========================================*/
 void global_init(const string& file_path)
 {
-	int fd = open(file_path.c_str(), O_RDONLY);
-	if(fd==-1)
-		err(errno, "open file <%s> failed", file_path.c_str());
-//	init_elf(fd);		//初始化elf
-//	init_dwarf(fd);
-	close(fd);
+	init_elf(file_path);		//初始化elf
+//	init_dwarf(fie_path);
 //	xed_init();
 //	llvm_init();
 //	clang_init();
