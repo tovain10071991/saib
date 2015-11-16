@@ -8,6 +8,7 @@
 #include <string>
 #include "../include/common.h"
 #include "../include/elf_handler.h"
+#include "../include/xed_handler.h"
 
 using namespace std;
 
@@ -30,7 +31,7 @@ void global_init(const string& file_path)
 {
 	init_elf(file_path);		//初始化elf
 //	init_dwarf(fie_path);
-//	xed_init();
+	init_xed();
 //	llvm_init();
 //	clang_init();
 }
@@ -48,6 +49,7 @@ uint32_t get_next_inst_offset()
 //	if(current_execSec_index==-1)	//第一次读
 //		goto update_execSec;
 	inst_byte_set = get_byte_set_from_offset(current_offset);
+	get_inst_size(inst_byte_set);
 //	current_offset = current_offset+get_inst_size(inst_byte_set);
 //	if(!is_offset_in_function(current_offset, current_execSec_index))
 //	{

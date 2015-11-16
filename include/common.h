@@ -62,7 +62,7 @@ extern std::map<std::string, int> file_count;
 		struct stat st;	\
 		if(file_count.find(file_path)==file_count.end())	\
 			file_count[file_path] = 0;	\
-		string full_path(file_path+string(".")+to_string(file_count[file_path]));	\
+		std::string full_path(file_path+std::string(".")+std::to_string(file_count[file_path]));	\
 		int fd = open(full_path.c_str(), O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);	\
 		if(fd==-1)	\
 			err(errno, "open file <%s> in debug_output_filePath failed", full_path.c_str());	\
@@ -74,7 +74,7 @@ extern std::map<std::string, int> file_count;
 			debug_output_with_FILE(stderr, "complete output of the file <%s>\n", full_path.c_str());	\
 			++file_count[file_path];\
 			full_path.clear();	\
-			full_path = file_path + string(".") + to_string(file_count[file_path]);	\
+			full_path = file_path + std::string(".") + std::to_string(file_count[file_path]);	\
 		}	\
 		close(fd);	\
 		FILE* fp = fopen(full_path.c_str(), "a+");	\

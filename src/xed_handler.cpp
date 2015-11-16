@@ -13,8 +13,34 @@ extern "C"{
 
 static xed_state_t xed_state;
 
-void xed_init()
+/*===========================================
+ * 函数名：	init_xed
+ * 参数：
+ *	功能描述：初始化xed。
+ *	返回值：void，只准成功
+ *	抛出异常
+===========================================*/
+void init_xed()
 {
 	xed_state_init2(&xed_state, XED_MACHINE_MODE_LONG_64, XED_ADDRESS_WIDTH_64b);
 	xed_tables_init();
+}
+
+/*===========================================
+ * 函数名：	get_inst_size
+ * 参数：
+ *	功能描述：根据字节获取指令长度
+ *	返回值：void，只准成功
+ *	抛出异常
+===========================================*/
+void get_inst_size(inst_byte_set_t inst_byte_set)
+{
+	xed_decoded_inst_t decoded_inst;
+	xed_decoded_inst_zero_set_mode(&decoded_inst, &xed_state);
+	xed_decode(&decoded_inst, inst_byte_set.data(), INST_MAX_SIZE);
+#ifdef DEBUG
+	char buf[50] = "";
+	xed_format_context(XED_SYNTAX_ATT, &decoded_inst, buf, 49, 0, 0, 0);
+	debug_output_with_filePath("out/disas.out", "%s\n", buf);
+#endif
 }

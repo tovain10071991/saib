@@ -8,6 +8,9 @@
 #ifndef _XED_HANDLER_H_
 #define _XED_HANDLER_H_
 
-extern void xed_init();
+#include "../include/common.h"
+
+extern void init_xed();
+extern void get_inst_size(inst_byte_set_t inst_byte_set);
 
 #endif
