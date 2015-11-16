@@ -13,5 +13,7 @@
 
 void init_elf(const std::string& file_path);		//初始化elf
 byte_set_t get_byte_set_from_offset(uint32_t offset);	//根据文件偏移读取字节集
+bool is_offset_in_execSec(uint32_t offset, int sec_index);
+uint32_t get_execSec_offset(int execSec_index);
 
 #endif

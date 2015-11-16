@@ -10,12 +10,12 @@
 #include <gelf.h>		//libelf头文件
 #include "../include/elf_handler.h"
 #include "../include/common.h"
-#include <map>
+#include <vector>
 
 using namespace std;
 
 typedef GElf_Shdr sec_info_t;
-static map<int, sec_info_t> sec_info_set;	//节号对应节信息
+static vector<sec_info_t> execSec_info_set;
 
 static int fd;
 //程序一次执行只会读取一个二进制文件，所有elf相关的对象都做为static放在这里吧
@@ -92,14 +92,10 @@ void create_execSec_set()
 			errx(elf_errno(), "gelf_getshdr failed: %s\n", elf_errmsg(elf_errno()));
 		if((shdr.sh_type == SHT_PROGBITS) && (shdr.sh_flags & SHF_EXECINSTR))
 		{
-			sec_info_set[sec_ndx] = shdr;
+			execSec_info_set.push_back(shdr);
 		}
 		++sec_ndx;
 	}
-#ifdef DEBUG
-	for(auto iter=sec_info_set.begin(); iter!=sec_info_set.end(); ++iter)
-		debug_output_with_filePath("out/xec_info_set.out", "%d\n", iter->first);
-#endif
 }
 
 /*===========================================
@@ -125,4 +121,21 @@ byte_set_t get_byte_set_from_offset(uint32_t offset)
 	debug_output_with_filePath("out/btye_set.out", "\n");
 #endif
 	return byte_set;
+}
+
+bool is_offset_in_execSec(uint32_t offset, int execSec_index)
+{
+	GElf_Shdr shdr = execSec_info_set[execSec_index];
+	if((offset < shdr.sh_offset) || (offset > (shdr.sh_offset+shdr.sh_size)))
+		return false;
+	else
+		return true;
+}
+
+uint32_t get_execSec_offset(int execSec_index)
+{
+	if(execSec_index < execSec_info_set.size())
+		return execSec_info_set[execSec_index].sh_offset;
+	else
+		return 0;
 }

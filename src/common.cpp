@@ -16,7 +16,7 @@ using namespace std;
 std::map<std::string, int> file_count;
 #endif
 
-static uint32_t current_offset = 0x28a0;		//当前返回的指令字节的文件偏移，初始为0，表示第一次要返回第一个指令字节，下次再为0表示遍历结束
+static uint32_t current_offset;		//当前返回的指令字节的文件偏移，初始为0，表示第一次要返回第一个指令字节，下次再为0表示遍历结束
 static int current_execSec_index = -1;	//当前可执行节索引，可用来访问可执行节列表。初始为-1，表示还未开始读
 
 /*===========================================
@@ -46,17 +46,17 @@ void global_init(const string& file_path)
 uint32_t get_next_inst_offset()
 {
 	inst_byte_set_t inst_byte_set;
-//	if(current_execSec_index==-1)	//第一次读
-//		goto update_execSec;
+	if(current_execSec_index==-1)	//第一次读
+		goto update_execSec;
 	inst_byte_set = get_byte_set_from_offset(current_offset);
 	current_offset = current_offset+get_inst_size(inst_byte_set);
-//	if(!is_offset_in_function(current_offset, current_execSec_index))
-//	{
-//update_execSec:
-//		++current_execSex_index;
-//		current_offset = get_execSec_offset(current_execSec_index);
-//		inst_byte_set = get_byte_set_from_offset(current_offset);
-//		current_offset = current_offset+get_inst_size(inst_byte_set);
-//	}
+	if(!is_offset_in_execSec(current_offset, current_execSec_index))
+	{
+update_execSec:
+		++current_execSec_index;
+		current_offset = get_execSec_offset(current_execSec_index);
+		if(current_offset == 0)
+			return 0;
+	}
 	return current_offset;
 }
