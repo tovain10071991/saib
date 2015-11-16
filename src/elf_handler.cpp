@@ -15,7 +15,7 @@
 using namespace std;
 
 typedef GElf_Shdr sec_info_t;
-static map<int, sec_info_t> xec_info_list;	//节号对应节信息
+static map<int, sec_info_t> sec_info_set;	//节号对应节信息
 
 static int fd;
 //程序一次执行只会读取一个二进制文件，所有elf相关的对象都做为static放在这里吧
@@ -23,7 +23,7 @@ static Elf* elf;
 static char* file_rawdata;
 static size_t file_size;
 
-void create_execSec_list();
+void create_execSec_set();
 
 /*===========================================
  * 函数名：	init_elf
@@ -67,7 +67,7 @@ void init_elf(const string& file_path)
 #endif
 
 	//创建可执行节列表，在common.cpp中遍历指令字节需要
-	create_execSec_list();
+	create_execSec_set();
 }
 
 /*===========================================
@@ -77,8 +77,29 @@ void init_elf(const string& file_path)
  *	返回值：void
  *	抛出异常
 ===========================================*/
-void create_execSec_list()
+void create_execSec_set()
 {
+	GElf_Ehdr ehdr;
+	if(gelf_getehdr(elf, &ehdr)==NULL)
+		errx(elf_errno(), "elf_getehdr failed: %s\n", elf_errmsg(elf_errno()));
+
+	GElf_Shdr shdr;
+	int sec_ndx = 1;		//大概scn的遍历是从索引为1的节开始的
+	Elf_Scn* scn = NULL;
+	while((scn=elf_nextscn(elf, scn))!=NULL)
+	{
+		if(gelf_getshdr(scn, &shdr)==NULL)
+			errx(elf_errno(), "gelf_getshdr failed: %s\n", elf_errmsg(elf_errno()));
+		if((shdr.sh_type == SHT_PROGBITS) && (shdr.sh_flags & SHF_EXECINSTR))
+		{
+			sec_info_set[sec_ndx] = shdr;
+		}
+		++sec_ndx;
+	}
+#ifdef DEBUG
+	for(auto iter=sec_info_set.begin(); iter!=sec_info_set.end(); ++iter)
+		debug_output_with_filePath("out/xec_info_set.out", "%d\n", iter->first);
+#endif
 }
 
 /*===========================================

@@ -11,6 +11,6 @@
 #include "../include/common.h"
 
 extern void init_xed();
-extern void get_inst_size(inst_byte_set_t inst_byte_set);
+extern uint32_t get_inst_size(inst_byte_set_t inst_byte_set);
 
 #endif

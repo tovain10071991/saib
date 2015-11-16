@@ -30,10 +30,10 @@ void init_xed()
  * 函数名：	get_inst_size
  * 参数：
  *	功能描述：根据字节获取指令长度
- *	返回值：void，只准成功
+ *	返回值：uint32_t，指令长度
  *	抛出异常
 ===========================================*/
-void get_inst_size(inst_byte_set_t inst_byte_set)
+uint32_t get_inst_size(inst_byte_set_t inst_byte_set)
 {
 	xed_decoded_inst_t decoded_inst;
 	xed_decoded_inst_zero_set_mode(&decoded_inst, &xed_state);
@@ -43,4 +43,5 @@ void get_inst_size(inst_byte_set_t inst_byte_set)
 	xed_format_context(XED_SYNTAX_ATT, &decoded_inst, buf, 49, 0, 0, 0);
 	debug_output_with_filePath("out/disas.out", "%s\n", buf);
 #endif
+	return xed_decoded_inst_get_length(&decoded_inst);
 }
