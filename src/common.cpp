@@ -44,17 +44,19 @@ void global_init(const string& file_path)
 ===========================================*/
 uint32_t get_next_inst_offset()
 {
-	if(current_execSec_index==-1)	//第一次读
-		goto update_execSec;
-	inst_byte_set_t inst_byte_set = get_byte_set_from_offset(current_offset);
-	current_offset = current_offset+get_inst_size(inst_byte_set);
-	if(!is_offset_in_function(current_offset, current_function_index))
-	{
-update_execSec:
-		++current_execSex_index;
-		current_offset = get_function_offset(current_function_index);
-		inst_byte_set_t inst_byte_set = get_byte_set_from_offset(current_offset);
-		maybe_next_inst_offset = current_offset+get_inst_size(inst_byte_set);
-	}
+	inst_byte_set_t inst_byte_set;
+//	if(current_execSec_index==-1)	//第一次读
+//		goto update_execSec;
+	inst_byte_set = get_byte_set_from_offset(current_offset);
+//	current_offset = current_offset+get_inst_size(inst_byte_set);
+//	if(!is_offset_in_function(current_offset, current_execSec_index))
+//	{
+//update_execSec:
+//		++current_execSex_index;
+//		current_offset = get_execSec_offset(current_execSec_index);
+//		inst_byte_set = get_byte_set_from_offset(current_offset);
+//		current_offset = current_offset+get_inst_size(inst_byte_set);
+//	}
+	current_offset+=15;
 	return current_offset;
 }

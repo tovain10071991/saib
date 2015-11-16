@@ -22,7 +22,9 @@ using namespace std;
 ===========================================*/
 int main(int argc, const char** argv)
 {
+#ifdef DEBUG
 	debug_output_with_FILE(stderr, "now is debug mode\n");
+#endif
 	//读取二进制文件，全局初始化
 	global_init(string(argv[1]));
 	//遍历指令

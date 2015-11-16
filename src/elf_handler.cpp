@@ -10,14 +10,20 @@
 #include <gelf.h>		//libelf头文件
 #include "../include/elf_handler.h"
 #include "../include/common.h"
+#include <map>
 
 using namespace std;
+
+typedef GElf_Shdr sec_info_t;
+static map<int, sec_info_t> xec_info_list;	//节号对应节信息
 
 static int fd;
 //程序一次执行只会读取一个二进制文件，所有elf相关的对象都做为static放在这里吧
 static Elf* elf;
+static char* file_rawdata;
+static size_t file_size;
 
-void create_function_list();
+void create_execSec_list();
 
 /*===========================================
  * 函数名：	init_elf
@@ -42,18 +48,36 @@ void init_elf(const string& file_path)
 		errx(elf_errno(), "elf_begin failed: %s\n", elf_errmsg(elf_errno()));
 	
 	//其他初始化工作
-	//创建函数列表，在common.cpp中遍历指令字节需要
-	create_function_list();
+	file_rawdata = elf_rawfile(elf, &file_size);
+	if(file_rawdata==NULL)
+		errx(elf_errno(), "elf_rawfile failed: %s\n", elf_errmsg(elf_errno()));
+#ifdef DEBUG
+	debug_output_with_filePath("out/file_rawdata.out", "%zu\n", file_size);
+	int j=0;
+	for(size_t i=0; i<file_size; ++i)
+	{
+		debug_output_with_filePath("out/file_rawdata.out", "%x\t", (uint8_t)file_rawdata[i]);
+		++j;
+		if(j==15)
+		{
+			j=0;
+			debug_output_with_filePath("out/file_rawdata.out", "\n");
+		}
+	}
+#endif
+
+	//创建可执行节列表，在common.cpp中遍历指令字节需要
+	create_execSec_list();
 }
 
 /*===========================================
- * 函数名：	create_function_list
+ * 函数名：	create_execSec_list
  * 参数：用static的变量
- *	功能描述：创建函数列表
+ *	功能描述：创建可执行节列表
  *	返回值：void
  *	抛出异常
 ===========================================*/
-void create_function_list()
+void create_execSec_list()
 {
 }
 
@@ -67,6 +91,8 @@ void create_function_list()
 ===========================================*/
 byte_set_t get_byte_set_from_offset(uint32_t offset)
 {
+	if(offset>file_size)
+		errx(-1, "off>file_size");
 	if(lseek(fd, offset, SEEK_SET)==-1)
 		err(errno, "seek in offset <%u> failed in get_byte_set_from_offset", offset);
 	byte_set_t byte_set;
