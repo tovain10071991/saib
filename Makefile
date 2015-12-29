@@ -2,12 +2,9 @@
 
 CC = /home/user/Documents/llvm-3.4-build/bin/clang
 CXX = /home/user/Documents/llvm-3.4-build/bin/clang++
+LLVM_CONFIG ?= /home/user/Documents/llvm-3.4-build/bin/llvm-config
 
-ELF_INCLUDE := /home/user/Documents/libelf-0.8.13/build/include/
-ELF_LIBRARY := /home/user/Documents/libelf-0.8.13/build/lib/
-
-XED_INCLUDE := /home/user/Documents/pin-2.14-71313-gcc.4.4.7-linux/extras/xed-intel64/include/
-XED_STATIC := /home/user/Documents/pin-2.14-71313-gcc.4.4.7-linux/extras/xed-intel64/lib/libxed.a
+LLVMLIBS=$(shell $(LLVM_CONFIG) --libs core option bitwriter bitreader irreader linker ipo instrumentation mcparser objcarcopts)
 
 PROJECT_ROOT := .
 SAIB_INCLUDE := $(PROJECT_ROOT)/include
@@ -24,14 +21,14 @@ OBJECT := $(foreach n,$(OBJECT_BASE_NAME),$(SAIB_OBJECT)/$(n))
 OUTPUT := $(wildcard $(SAIB_OUT)/*out*)
 
 INCLUDEDIR := -I$(ELF_INCLUDE) -I$(XED_INCLUDE)
-LIBDIR := -L$(ELF_LIBRARY) $(XED_STATIC)
+LIBDIR := $(LLVMLIBS)
 
-CPPFLAGS += $(INCLUDEDIR)
-CXXFLAGS += -c -gstrict-dwarf -g3 $(INCLUDEDIR) -std=c++11# -Wall
+CPPFLAGS += $(INCLUDEDIR) $(shell $(LLVM_CONFIG) --cppflags)
+CXXFLAGS += -c -gstrict-dwarf -g3 $(INCLUDEDIR) -std=c++11 $(shell $(LLVM_CONFIG) --cxxflags)# -Wall
 ifdef DEBUG
 	CXXFLAGS += -DDEBUG
 endif
-LDFLAGS += -lelf
+LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags)
 
 all: $(EXECUTE)
 
