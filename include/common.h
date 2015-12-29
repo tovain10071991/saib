@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <err.h>
 #include <errno.h>
+#include "../include/llvm_handler.h"
 #ifdef DEBUG
 	#include <map>
 #endif
@@ -25,11 +26,13 @@
 typedef std::array<uint8_t, INST_MAX_SIZE> inst_byte_set_t;
 typedef inst_byte_set_t byte_set_t;
 
-extern void global_init(const std::string& file_path);
+extern void global_init();
 uint32_t get_next_inst_offset();
 //extern uint32_t get_next_inst_offset(uint32_t offset);
 //extern const inst_byte_set_t& get_inst_from_offset(uint32_t offset);
 //extern bool is_indirect_branch(const inst_byte_set_t& inst_str);
+extern const std::string& get_bitcode(const std::string& binary_file);
+extern void parse_bitcode(const std::string& bitcode_file);
 
 #ifdef DEBUG
 extern std::map<std::string, int> file_count;
