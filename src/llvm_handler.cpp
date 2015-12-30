@@ -16,6 +16,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/InstIterator.h"
 
 using namespace std;
 using namespace llvm;
@@ -58,11 +59,28 @@ void parse_bitcode(const std::string& bitcode_file)
 		errx(-1, "parse bitcode file failed.");
 	debug_output_with_FILE(stderr, "succeed to  create Module\n");
 	//迭代函数然后迭代指令
+#ifdef DEBUG
+	string inst_output;
+	raw_string_ostream inst_output_ostream(inst_output);
+#endif
 	for(auto func_iter = mdl->begin(); func_iter != mdl->end(); ++func_iter)
 	{
+#ifdef DEBUG
 		if(func_iter->hasName())
 			debug_output_with_filePath("out/ins_iter.out", "%s\n", func_iter->getName().data());
 		else
-			debug_output_with_filePath("out/ins_iter.out", "no name\n");
+			debug_output_with_filePath("out/ins_iter.out", "noname\n");
+#endif
+		for(auto inst_iter = inst_begin(&*func_iter); inst_iter != inst_end(&*func_iter); ++inst_iter)
+		{
+#ifdef DEBUG
+			inst_output.clear();
+			inst_iter->print(inst_output_ostream);
+			if(inst_iter->hasName())
+				debug_output_with_filePath("out/ins_iter.out", "\t%s\t%s\n\t\t%s\n", inst_iter->getName().data(), inst_iter->getOpcodeName(), inst_output.c_str());
+			else
+				debug_output_with_filePath("out/ins_iter.out", "\tnoname\t%s\n\t\t%s\n", inst_iter->getOpcodeName(), inst_output.c_str());
+#endif
+		}
 	}
 }
