@@ -17,6 +17,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 using namespace std;
 using namespace llvm;
@@ -81,6 +83,26 @@ void parse_bitcode(const std::string& bitcode_file)
 			else
 				debug_output_with_filePath("out/ins_iter.out", "\tnoname\t%s\n\t\t%s\n", inst_iter->getOpcodeName(), inst_output.c_str());
 #endif
+			if(inst_iter->getOpcode()==Instruction::Call)
+			{
+				if(CallInst* call_inst = dyn_cast<CallInst>(&*inst_iter))
+				{
+					if(IntrinsicInst* intrinsic_inst = dyn_cast<IntrinsicInst>(&*inst_iter))
+					{
+#ifdef DEBUG
+						debug_output_with_filePath("out/ins_iter.out", "\t\t*****intrinsic_inst\n");
+#endif
+						continue;
+					}
+					if(call_inst->getCalledFunction()!=NULL)
+					{
+#ifdef DEBUG
+						debug_output_with_filePath("out/ins_iter.out", "\t\t*****direct_call\n");
+#endif
+						continue;
+					}
+				}
+			}
 		}
 	}
 }
