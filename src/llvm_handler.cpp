@@ -23,6 +23,20 @@
 using namespace std;
 using namespace llvm;
 
+#ifdef DEBUG
+	static string output_str;
+	static raw_string_ostream output_ostream(output_str);
+	#define debug_print(x) \
+	({ \
+		output_str.clear(); \
+		x->print(output_ostream); \
+		output_str; \
+	})
+#else
+	#define debug_print(x)
+#endif
+
+
 /*===========================================
  * 函数名：	get_bitcode
  * 参数：
@@ -61,46 +75,41 @@ void parse_bitcode(const std::string& bitcode_file)
 		errx(-1, "parse bitcode file failed.");
 	debug_output_with_FILE(stderr, "succeed to  create Module\n");
 	//迭代函数然后迭代指令
-#ifdef DEBUG
-	string inst_output;
-	raw_string_ostream inst_output_ostream(inst_output);
-#endif
 	for(auto func_iter = mdl->begin(); func_iter != mdl->end(); ++func_iter)
 	{
-#ifdef DEBUG
-		if(func_iter->hasName())
-			debug_output_with_filePath("out/ins_iter.out", "%s\n", func_iter->getName().data());
-		else
-			debug_output_with_filePath("out/ins_iter.out", "noname\n");
-#endif
+		debug_output_with_filePath("out/ins_iter.out", "\nFucntion: %s\n", func_iter->hasName()?func_iter->getName().data():"noname");
 		for(auto inst_iter = inst_begin(&*func_iter); inst_iter != inst_end(&*func_iter); ++inst_iter)
 		{
-#ifdef DEBUG
-			inst_output.clear();
-			inst_iter->print(inst_output_ostream);
-			if(inst_iter->hasName())
-				debug_output_with_filePath("out/ins_iter.out", "\t%s\t%s\n\t\t%s\n", inst_iter->getName().data(), inst_iter->getOpcodeName(), inst_output.c_str());
-			else
-				debug_output_with_filePath("out/ins_iter.out", "\tnoname\t%s\n\t\t%s\n", inst_iter->getOpcodeName(), inst_output.c_str());
-#endif
+			debug_output_with_filePath("out/ins_iter.out", "\n\t%s\t%s\n\t\t%s\n", inst_iter->hasName()?inst_iter->getName().data():"noname", inst_iter->getOpcodeName(), debug_print(inst_iter).c_str());
 			if(inst_iter->getOpcode()==Instruction::Call)
 			{
 				if(CallInst* call_inst = dyn_cast<CallInst>(&*inst_iter))
 				{
 					if(IntrinsicInst* intrinsic_inst = dyn_cast<IntrinsicInst>(&*inst_iter))
 					{
-#ifdef DEBUG
-						debug_output_with_filePath("out/ins_iter.out", "\t\t*****intrinsic_inst\n");
-#endif
+						debug_output_with_filePath("out/ins_iter.out", "\tinst_type: intrinsic_inst\n");
 						continue;
 					}
 					if(call_inst->getCalledFunction()!=NULL)
 					{
-#ifdef DEBUG
-						debug_output_with_filePath("out/ins_iter.out", "\t\t*****direct_call\n");
-#endif
+						debug_output_with_filePath("out/ins_iter.out", "\tinst_type: direct_call\n");
 						continue;
 					}
+					Value* called_val = call_inst->getCalledValue();
+					debug_output_with_filePath("out/ins_iter.out", "\tcalled_val: %d:%s\t%s\n", called_val->getType()->getTypeID(), debug_print(called_val->getType()).c_str(), debug_print(called_val).c_str());
+					if(User* user = dyn_cast<User>(called_val))
+					{
+						if(user->getNumOperands())
+						{
+							debug_output_with_filePath("out/ins_iter.out", "\tcalled_val's_opr: %u\n", user->getNumOperands());
+							if(Function* func = dyn_cast<Function>(user->getOperand(0)))
+							{
+								debug_output_with_filePath("out/ins_iter.out", "\t\t#####%s\n", debug_print(func).c_str());
+							}
+						}
+					}
+					else
+						errx(-1, "called_val is not user.");
 				}
 			}
 		}
