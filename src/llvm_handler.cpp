@@ -15,6 +15,7 @@
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 
 using namespace std;
 using namespace llvm;
@@ -50,4 +51,18 @@ void parse_bitcode(const std::string& bitcode_file)
 	if(!buf)
 		errx(-1, "get file failed.");
 	debug_output_with_FILE(stderr, "succeed to read bc into memory\n");
+	//创建Module
+	LLVMContext context;
+	Module* mdl = ParseBitcodeFile(&*buf, context);
+	if(!mdl)
+		errx(-1, "parse bitcode file failed.");
+	debug_output_with_FILE(stderr, "succeed to  create Module\n");
+	//迭代函数然后迭代指令
+	for(auto func_iter = mdl->begin(); func_iter != mdl->end(); ++func_iter)
+	{
+		if(func_iter->hasName())
+			debug_output_with_filePath("out/ins_iter.out", "%s\n", func_iter->getName().data());
+		else
+			debug_output_with_filePath("out/ins_iter.out", "no name\n");
+	}
 }
