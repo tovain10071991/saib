@@ -21,6 +21,12 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/CFG.h"
 
+#include <set>
+#include <map>
+#include <functional>
+
+#include "tree.hh"
+
 using namespace std;
 using namespace llvm;
 
@@ -45,17 +51,56 @@ using namespace llvm;
 	ret; \
 })
 
-
 enum class indirect_branch_type {
 	not_indirect_branch,
 	indirect_call
 };
 
+#ifdef DEBUG
+	typedef set<Value*>  target_source_set_t;	//目标来源可以是常量或基本块
+	typedef map<Instruction*, target_source_set_t> inst_target_source_set_set_t;
+	static inst_target_source_set_set_t inst_target_source_set_set;
+	//把target_source加到inst的目标来源集里
+	inline void debug_add_target_source_in_inst(Instruction* inst, Value* target_source)
+	{
+		inst_target_source_set_set[inst].insert(target_source);
+	}
+	//把target_source从inst的目标来源集里除去
+	inline void debug_del_target_source_in_inst(Instruction* inst, Value* target_source)
+	{
+		inst_target_source_set_set[inst].erase(target_source);
+	}
+#else
+	inline void debug_add_target_source_in_inst(Instruction* inst, Value* target_source) {}
+	inline void debug_del_target_source_in_inst(Instruction* inst, Value* target_source) {}
+#endif
+
+typedef tree<Value*> def_val_tree_t;
+typedef def_val_tree_t::sibling_iterator def_val_node_t;
+typedef map<Instruction*, def_val_tree_t> inst_def_val_tree_set_t;
+static inst_def_val_tree_set_t inst_def_val_tree_set;
+inline def_val_node_t add_def_val(Instruction* inst, def_val_node_t def_val_node, Value* def_val)
+{
+	for(def_val_node_t iter = inst_def_val_tree_set[inst].begin(def_val_node); iter != inst_def_val_tree_set[inst].end(def_val_node); ++iter)
+	{
+		if(*iter == def_val)
+			return iter;
+	}
+	return inst_def_val_tree_set[inst].append_child(def_val_node, def_val);
+}
+inline def_val_node_t init_def_val_tree(Instruction* inst, Value* val)
+{
+	return inst_def_val_tree_set[inst].set_head(val);
+}
+
 static void iterate_func_inst(Module* mdl);
 static void iterate_inst(Function* func);
-static indirect_branch_type judge_indirect_branch(Instruction* inst);
+static bool is_indirect_branch(Instruction* inst);
+static indirect_branch_type get_indirect_branch_type(Instruction* inst);
 static bool is_indirect_call(Instruction* inst);
-static void get_source_constant(Value* val);
+static void collect_inst_target(Instruction* indirect_branch_inst);
+static void collect_inst_def_val(Instruction* indirect_branch_inst);
+static Value* get_val_associated_target(Instruction* inst);
 static StoreInst* get_store_to_load(LoadInst* load_inst);	//从load向backward方向找离load最近的store
 static StoreInst* get_last_store_in_bb_and_pred_bb(BasicBlock* bb, Value* pointer_opr);
 
@@ -133,20 +178,23 @@ static void iterate_inst(Function* func)
 	for(auto inst_iter = inst_begin(func); inst_iter != inst_end(func); ++inst_iter)
 	{
 		debug_output_with_filePath("out/ins_iter.out", "\n\t%s\t%s\n\t\t%s\n", inst_iter->hasName()?inst_iter->getName().data():"noname", inst_iter->getOpcodeName(), debug_print(inst_iter).c_str());
-		if(judge_indirect_branch(&*inst_iter) == indirect_branch_type::indirect_call)
+		if(is_indirect_branch(&*inst_iter))
 		{
-			debug_output_with_FILE(stderr, "meet indirect call: %s\n", debug_print(inst_iter).c_str());
-			debug_output_with_filePath("out/indirect_call.out", "%s\n\t%s\n", inst_iter->getParent()->getParent()->hasName()?inst_iter->getParent()->getParent()->getName().data():"noname", debug_print(inst_iter).c_str());
-			CallInst* call_inst = DYN_CAST_ASSERT(&*inst_iter, CallInst);
-			Value* called_val = call_inst->getCalledValue();
-			debug_output_with_FILE(stderr, "called value: %s\n", debug_print(called_val).c_str());
-			get_source_constant(called_val);	//找到第一个决定该变量值的常量
+			build_inst_target_set(&*inst_iter);
 		}
 	}
 }
 
+static bool is_indirect_branch(Instruction* inst)
+{
+	if(get_indirect_branch_type(inst) == indirect_branch_type::not_indirect_branch)
+		return false;
+	else
+		return true;
+}
+
 /*===========================================
- * 函数名: judge_indirect_branch
+ * 函数名: get_indirect_branch_type
  * 参数:
  *			Instruction* inst
  *	功能描述: 判断指令是否为间接分支，间接分支包括间接call/jmp/ret
@@ -154,12 +202,19 @@ static void iterate_inst(Function* func)
  			indirect_branch_type: 间接分支的类型
  *	抛出异常
 ===========================================*/
-static indirect_branch_type judge_indirect_branch(Instruction* inst)
+static indirect_branch_type get_indirect_branch_type(Instruction* inst)
 {
 	if(is_indirect_call(inst))
 		return indirect_branch_type::indirect_call;
 	else
 		return indirect_branch_type::not_indirect_branch;
+}
+
+static void build_inst_target_set(Instruction* indirect_branch_inst)
+{
+//	Value* target_addr_opr = get_target_addr_opr(indirect_branch_inst);
+	build_inst_def_val_set(indirect_branch_inst);
+//	build_inst_target(indirect_branch_inst);
 }
 
 static bool is_indirect_call(Instruction* inst)
@@ -172,7 +227,7 @@ static bool is_indirect_call(Instruction* inst)
 			debug_output_with_filePath("out/ins_iter.out", "\tinst_type: intrinsic_inst\n");
 			return false;
 		}
-		else if(call_inst->getCalledFunction()!=NULL)		//只是直接调用
+		else if(call_inst->getCalledFunction()!=NULL)		//直接调用
 		{
 			debug_output_with_filePath("out/ins_iter.out", "\tinst_type: direct_call\n");
 			return false;
@@ -190,27 +245,73 @@ static bool is_indirect_call(Instruction* inst)
 	}
 }
 
-static void get_source_constant(Value* val)
+
+static void build_inst_def_val_set(Instruction* indirect_branch_inst)
 {
-	if(Constant* constant = dyn_cast<Constant>(val))
+	def_val_node_t def_val_node = inst_def_val_tree_set[indirect_branch_inst].init_def_val_tree(indirect_branch_inst, indirect_branch_inst);
+	build_subsequent_def_val_set(indirect_branch_inst, def_val_node);
+//	while(1)
+//	{
+//		if(isa<Constant>(def_val))
+//		{
+//			debug_output_with_FILE(stderr, "get constant: %s\n", debug_print(def_val).c_str());
+//			add_def_val_in_inst(pred_def_val, def_val);
+//			debug_add_target_source_in_inst(indirect_branch_inst, val);
+//			break;
+//		}
+//		else if(Instruction* inst = dyn_cast<Instruction>(val))
+//		{
+//			add_def_val_in_inst(indirect_branch_inst, val);
+//			val = get_val_associated_target(inst);
+//		}
+//	}
+}
+
+static void build_subsequent_def_val_set(Instruction* indirect_branch_inst, def_val_node_t def_val_node)
+{
+	collect_subsequent_def_val(indirect_branch_inst, def_val_node);
+	for(def_val_node_t sub_node = inst_def_val_tree_set[indirect_branch_inst].begin(def_val_node); sub_node != inst_def_val_tree_set[indirect_branch_inst].end(def_val_node); ++sub_node)
 	{
-		debug_output_with_FILE(stderr, "get constant: %s\n", debug_print(val).c_str());
+		build_subsequent_def_val_set(indirect_branch_inst, sub_node);
 	}
-	else if(Instruction* inst = dyn_cast<Instruction>(val))
+}
+
+void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_t def_val_node)
+{
+	Value* def_val = *def_val_node;
+	if(isa<Constant>(def_val))
+	{
+		debug_output_with_FILE(stderr, "get constant: %s\n", debug_print(def_val).c_str());
+		debug_add_target_source_in_inst(indirect_branch_inst, def_val);
+		break;
+	}
+	else if(Instruction* inst = dyn_cast<Instruction>(def_val))
 	{
 		switch(inst->getOpcode())
 		{
+			case Instruction::Call:
+			{
+				debug_output_with_FILE(stderr, "meet call: %s\n", debug_print(inst).c_str());
+				CallInst* call_inst = DYN_CAST_ASSERT(&*inst, CallInst);
+				Value* called_val = call_inst->getCalledValue();
+				debug_output_with_FILE(stderr, "called value: %s\n", debug_print(called_val).c_str());
+				inst_def_val_tree_set[indirect_branch_inst].add_def_val(indirect_branch_inst, def_val_node, called_val);
+				break;
+			}
 			case Instruction::Load:
 			{
 				LoadInst* load_inst = DYN_CAST_ASSERT(inst, LoadInst);
 				debug_output_with_FILE(stderr, "Load inst: %s\n", debug_print(load_inst).c_str());
 				Value* pointer_opr = load_inst->getPointerOperand();
 				debug_output_with_FILE(stderr, "pointer opr: %s\n", debug_print(pointer_opr).c_str());
-				StoreInst* store_inst = get_store_to_load(load_inst);	//从load向backward方向找离load最近的store
-				if(store_inst == NULL)
-					errx(-1, "load_inst's store is NULL: %s\n", debug_print(load_inst).c_str());
-				Value* store_source_opr = store_inst->getValueOperand();
-				get_source_constant(store_source_opr);
+				add_store_associated_load(indirect_branch_inst, def_val_node, load_inst);	//从load向backward方向找离load最近的store
+				break;
+			}
+			case Instruction::Store:
+			{
+				StoreInst* store_inst = DYN_CAST_ASSERT(inst, StoreInst);
+				Value* val_opr = store_inst->getValueOperand();
+				debug_output_with_FILE(stderr, "val opr: %s\n", debug_print(val_opr).c_str());
 				break;
 			}
 			default:
@@ -221,7 +322,7 @@ static void get_source_constant(Value* val)
 	}
 }
 
-static StoreInst* get_store_to_load(LoadInst* load_inst)	//从load向backward方向找离load最近的store
+static StoreInst* add_store_associated_load(Instruction* indirect_branch_inst, def_val_node_t def_val_node, LoadInst* load_inst)	//从load向backward方向找离load最近的store
 {
 	//本基本块开始，向前遍历指令
 	BasicBlock* bb = load_inst->getParent();
@@ -235,17 +336,17 @@ static StoreInst* get_store_to_load(LoadInst* load_inst)	//从load向backward方
 			if(store_inst->getPointerOperand() == pointer_opr)
 			{
 				debug_output_with_FILE(stderr, "store inst: %s\n", debug_print(store_inst).c_str());
-				return store_inst;
+				inst_def_val_tree_set[indirect_branch_inst].add_def_val(indirect_branch_inst, def_val_node, store_inst);
+				return;
 			}
 		}
 	}
 
 	//遍历完本基本块内的指令，再遍历前驱基本块
-		return get_last_store_in_bb_and_pred_bb(bb, pointer_opr);
-	return NULL;
+	add_last_store_in_pred_bb(indirect_branch_inst, bb, pointer_opr);
 }
 
-static StoreInst* get_last_store_in_bb_and_pred_bb(BasicBlock* bb, Value* pointer_opr)
+static void add_last_store_in_bb_and_pred_bb(Instruction* indirect_branch_inst, BasicBlock* bb, Value* pointer_opr)
 {
 	for(auto pred_iter = pred_begin(bb); pred_iter != pred_end(bb); ++pred_iter)
 	{
@@ -257,11 +358,12 @@ static StoreInst* get_last_store_in_bb_and_pred_bb(BasicBlock* bb, Value* pointe
 				if(store_inst->getPointerOperand() == pointer_opr)
 				{
 					debug_output_with_FILE(stderr, "store inst: %s\n", debug_print(store_inst).c_str());
+					inst_def_val_tree_set[indirect_branch_inst].add_def_val(indirect_branch_inst, def_val_node, store_inst);
 					return store_inst;
 				}
 			}
 		}
-		return get_last_store_in_bb_and_pred_bb(*pred_iter, pointer_opr);
+		add_last_store_in_pred_bb(indirect_branch_inst, *pred_iter, pointer_opr);
 	}
 	return NULL;
 }

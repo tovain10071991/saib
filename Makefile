@@ -6,6 +6,8 @@ LLVM_CONFIG ?= /home/user/Documents/llvm-3.4-build/bin/llvm-config
 
 LLVMLIBS=$(shell $(LLVM_CONFIG) --libs core option bitwriter bitreader irreader linker ipo instrumentation mcparser objcarcopts)
 
+TREE_INCLUDE = /home/user/Documents/tree-3.1/src
+
 PROJECT_ROOT := .
 SAIB_INCLUDE := $(PROJECT_ROOT)/include
 SAIB_SOURCE := $(PROJECT_ROOT)/src
@@ -20,11 +22,11 @@ OBJECT_BASE_NAME := $(SOURCE_BASE_NAME:.cpp=.o)
 OBJECT := $(foreach n,$(OBJECT_BASE_NAME),$(SAIB_OBJECT)/$(n))
 OUTPUT := $(wildcard $(SAIB_OUT)/*out*)
 
-INCLUDEDIR := -I$(ELF_INCLUDE) -I$(XED_INCLUDE)
+INCLUDEDIR := -I$(TREE_INCLUDE)
 LIBDIR := $(LLVMLIBS)
 
 CPPFLAGS += $(INCLUDEDIR) $(shell $(LLVM_CONFIG) --cppflags)
-CXXFLAGS += -c -gstrict-dwarf -g3 $(INCLUDEDIR) -std=c++11 $(shell $(LLVM_CONFIG) --cxxflags)# -Wall
+CXXFLAGS += -c -gstrict-dwarf -g3 $(INCLUDEDIR) -std=c++11 $(shell $(LLVM_CONFIG) --cxxflags) -fexceptions
 ifdef DEBUG
 	CXXFLAGS += -DDEBUG
 endif
