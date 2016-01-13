@@ -103,6 +103,11 @@ static void collect_inst_def_val(Instruction* indirect_branch_inst);
 static Value* get_val_associated_target(Instruction* inst);
 static StoreInst* get_store_to_load(LoadInst* load_inst);	//从load向backward方向找离load最近的store
 static StoreInst* get_last_store_in_bb_and_pred_bb(BasicBlock* bb, Value* pointer_opr);
+static void build_inst_target_set(Instruction* indirect_branch_inst);
+static void build_inst_def_val_set(Instruction* indirect_branch_inst);
+static void build_subsequent_def_val_set(Instruction* indirect_branch_inst, def_val_node_t def_val_node);
+void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_t def_val_node);
+static void add_store_associated_load(Instruction* indirect_branch_inst, def_val_node_t def_val_node);	//从load向backward方向找离load最近的store
 
 /*===========================================
  * 函数名：	get_bitcode
@@ -248,7 +253,7 @@ static bool is_indirect_call(Instruction* inst)
 
 static void build_inst_def_val_set(Instruction* indirect_branch_inst)
 {
-	def_val_node_t def_val_node = inst_def_val_tree_set[indirect_branch_inst].init_def_val_tree(indirect_branch_inst, indirect_branch_inst);
+	def_val_node_t def_val_node = init_def_val_tree(indirect_branch_inst, indirect_branch_inst);
 	build_subsequent_def_val_set(indirect_branch_inst, def_val_node);
 //	while(1)
 //	{
@@ -283,7 +288,6 @@ void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_
 	{
 		debug_output_with_FILE(stderr, "get constant: %s\n", debug_print(def_val).c_str());
 		debug_add_target_source_in_inst(indirect_branch_inst, def_val);
-		break;
 	}
 	else if(Instruction* inst = dyn_cast<Instruction>(def_val))
 	{
@@ -295,7 +299,7 @@ void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_
 				CallInst* call_inst = DYN_CAST_ASSERT(&*inst, CallInst);
 				Value* called_val = call_inst->getCalledValue();
 				debug_output_with_FILE(stderr, "called value: %s\n", debug_print(called_val).c_str());
-				inst_def_val_tree_set[indirect_branch_inst].add_def_val(indirect_branch_inst, def_val_node, called_val);
+				add_def_val(indirect_branch_inst, def_val_node, called_val);
 				break;
 			}
 			case Instruction::Load:
@@ -304,7 +308,7 @@ void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_
 				debug_output_with_FILE(stderr, "Load inst: %s\n", debug_print(load_inst).c_str());
 				Value* pointer_opr = load_inst->getPointerOperand();
 				debug_output_with_FILE(stderr, "pointer opr: %s\n", debug_print(pointer_opr).c_str());
-				add_store_associated_load(indirect_branch_inst, def_val_node, load_inst);	//从load向backward方向找离load最近的store
+				add_store_associated_load(indirect_branch_inst, def_val_node);	//从load向backward方向找离load最近的store
 				break;
 			}
 			case Instruction::Store:
@@ -322,8 +326,9 @@ void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_
 	}
 }
 
-static StoreInst* add_store_associated_load(Instruction* indirect_branch_inst, def_val_node_t def_val_node, LoadInst* load_inst)	//从load向backward方向找离load最近的store
+static void add_store_associated_load(Instruction* indirect_branch_inst, def_val_node_t def_val_node)	//从load向backward方向找离load最近的store
 {
+	LoadInst* load_inst = DYN_CAST_ASSERT(*def_val_node, LoadInst);
 	//本基本块开始，向前遍历指令
 	BasicBlock* bb = load_inst->getParent();
 	Value* pointer_opr = load_inst->getPointerOperand();
@@ -336,18 +341,15 @@ static StoreInst* add_store_associated_load(Instruction* indirect_branch_inst, d
 			if(store_inst->getPointerOperand() == pointer_opr)
 			{
 				debug_output_with_FILE(stderr, "store inst: %s\n", debug_print(store_inst).c_str());
-				inst_def_val_tree_set[indirect_branch_inst].add_def_val(indirect_branch_inst, def_val_node, store_inst);
+				add_def_val(indirect_branch_inst, def_val_node, store_inst);
 				return;
 			}
 		}
 	}
 
 	//遍历完本基本块内的指令，再遍历前驱基本块
-	add_last_store_in_pred_bb(indirect_branch_inst, bb, pointer_opr);
-}
-
-static void add_last_store_in_bb_and_pred_bb(Instruction* indirect_branch_inst, BasicBlock* bb, Value* pointer_opr)
-{
+//	add_last_store_in_pred_bb(indirect_branch_inst, bb, pointer_opr);
+function<void(BasicBlock*)> collect_store_in_pred_bb = [indirect_branch_inst, def_val_node, pointer_opr, &collect_store_in_pred_bb] (BasicBlock* bb) {
 	for(auto pred_iter = pred_begin(bb); pred_iter != pred_end(bb); ++pred_iter)
 	{
 		for(auto inst_iter = (*pred_iter)->rbegin(); inst_iter != (*pred_iter)->rend(); ++inst_iter)
@@ -358,12 +360,14 @@ static void add_last_store_in_bb_and_pred_bb(Instruction* indirect_branch_inst, 
 				if(store_inst->getPointerOperand() == pointer_opr)
 				{
 					debug_output_with_FILE(stderr, "store inst: %s\n", debug_print(store_inst).c_str());
-					inst_def_val_tree_set[indirect_branch_inst].add_def_val(indirect_branch_inst, def_val_node, store_inst);
-					return store_inst;
+					add_def_val(indirect_branch_inst, def_val_node, store_inst);
+					break;
 				}
 			}
 		}
-		add_last_store_in_pred_bb(indirect_branch_inst, *pred_iter, pointer_opr);
+		collect_store_in_pred_bb(*pred_iter);
 	}
-	return NULL;
+};
+
+	collect_store_in_pred_bb(bb);
 }
