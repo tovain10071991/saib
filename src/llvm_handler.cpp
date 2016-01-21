@@ -98,15 +98,10 @@ static void iterate_inst(Function* func);
 static bool is_indirect_branch(Instruction* inst);
 static indirect_branch_type get_indirect_branch_type(Instruction* inst);
 static bool is_indirect_call(Instruction* inst);
-static void collect_inst_target(Instruction* indirect_branch_inst);
-static void collect_inst_def_val(Instruction* indirect_branch_inst);
-static Value* get_val_associated_target(Instruction* inst);
-static StoreInst* get_store_to_load(LoadInst* load_inst);	//从load向backward方向找离load最近的store
-static StoreInst* get_last_store_in_bb_and_pred_bb(BasicBlock* bb, Value* pointer_opr);
 static void build_inst_target_set(Instruction* indirect_branch_inst);
 static void build_inst_def_val_set(Instruction* indirect_branch_inst);
 static void build_subsequent_def_val_set(Instruction* indirect_branch_inst, def_val_node_t def_val_node);
-void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_t def_val_node);
+static void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_t def_val_node);
 static void add_store_associated_load(Instruction* indirect_branch_inst, def_val_node_t def_val_node);	//从load向backward方向找离load最近的store
 
 /*===========================================
@@ -255,21 +250,6 @@ static void build_inst_def_val_set(Instruction* indirect_branch_inst)
 {
 	def_val_node_t def_val_node = init_def_val_tree(indirect_branch_inst, indirect_branch_inst);
 	build_subsequent_def_val_set(indirect_branch_inst, def_val_node);
-//	while(1)
-//	{
-//		if(isa<Constant>(def_val))
-//		{
-//			debug_output_with_FILE(stderr, "get constant: %s\n", debug_print(def_val).c_str());
-//			add_def_val_in_inst(pred_def_val, def_val);
-//			debug_add_target_source_in_inst(indirect_branch_inst, val);
-//			break;
-//		}
-//		else if(Instruction* inst = dyn_cast<Instruction>(val))
-//		{
-//			add_def_val_in_inst(indirect_branch_inst, val);
-//			val = get_val_associated_target(inst);
-//		}
-//	}
 }
 
 static void build_subsequent_def_val_set(Instruction* indirect_branch_inst, def_val_node_t def_val_node)
@@ -281,7 +261,7 @@ static void build_subsequent_def_val_set(Instruction* indirect_branch_inst, def_
 	}
 }
 
-void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_t def_val_node)
+static void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_t def_val_node)
 {
 	Value* def_val = *def_val_node;
 	if(isa<Constant>(def_val))
@@ -308,7 +288,19 @@ void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_
 				debug_output_with_FILE(stderr, "Load inst: %s\n", debug_print(load_inst).c_str());
 				Value* pointer_opr = load_inst->getPointerOperand();
 				debug_output_with_FILE(stderr, "pointer opr: %s\n", debug_print(pointer_opr).c_str());
-				add_store_associated_load(indirect_branch_inst, def_val_node);	//从load向backward方向找离load最近的store
+				if(Instruction* pointer_opr_inst = dyn_cast<Instruction>(pointer_opr))
+				{
+					if(pointer_opr_inst->getOpcode()==Instruction::Alloca)
+					{
+						add_store_associated_load(indirect_branch_inst, def_val_node);	//从load向backward方向找离load最近的store
+						break;
+					}
+//					else if(pointer_opr_inst->getOpcode()==Insruction::GetElementPtr)
+//					{
+//						GetElementPtrInst* getElementPtr_inst = DYN_CAST_ASSERT(pointer_opr_inst, GetElementPtrInst);
+//					}
+				}
+				add_def_val(indirect_branch_inst, def_val_node, pointer_opr);
 				break;
 			}
 			case Instruction::Store:
@@ -316,7 +308,23 @@ void collect_subsequent_def_val(Instruction* indirect_branch_inst, def_val_node_
 				StoreInst* store_inst = DYN_CAST_ASSERT(inst, StoreInst);
 				Value* val_opr = store_inst->getValueOperand();
 				debug_output_with_FILE(stderr, "val opr: %s\n", debug_print(val_opr).c_str());
+				add_def_val(indirect_branch_inst, def_val_node, val_opr);
 				break;
+			}
+			case Instruction::GetElementPtr:
+			{
+				GetElementPtrInst* getElementPtr_inst = DYN_CAST_ASSERT(inst, GetElementPtrInst);
+				Value* pointer_opr = getElementPtr_inst->getPointerOperand();
+				debug_output_with_FILE(stderr, "getElementPtr_inst's pointer opr: %s\n", debug_print(pointer_opr).c_str());
+				add_def_val(indirect_branch_inst, def_val_node, pointer_opr);
+				break;
+			}
+			case Instruction::BitCast:
+			{
+				BitCastInst* bitCast_inst = DYN_CAST_ASSERT(inst, BitCastInst);
+				Value* opr = bitCast_inst->getOperand(0);
+				debug_output_with_FILE(stderr, "bitCast_inst's opr: %s\n", debug_print(opr).c_str());
+				add_def_val(indirect_branch_inst, def_val_node, opr);
 			}
 			default:
 			{
